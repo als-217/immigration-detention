@@ -1,0 +1,20 @@
+# Ignore DS_Store
+.DS_Store
+
+# Ignore virtual environment
+id_venv/
+
+# Ignore the data directory
+data/
+
+# Ignore the intermediate directory
+intermediate/
+
+# Ignore the processed directory
+processed/
+
+# Ignore notebook files (these are for testing)
+*.ipynb
+
+# Ignore data url
+data_url.txt
