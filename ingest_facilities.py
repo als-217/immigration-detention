@@ -20,6 +20,9 @@ df = pl.read_excel(
         engine="calamine"
     )
 
+df = df.unique(subset=["detention_facility_code"])
+
+
 print("Writing data...")
 Path("data").mkdir(parents=True, exist_ok=True)
 df.write_parquet("data/facilities_raw.parquet")
