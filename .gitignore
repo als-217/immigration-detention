@@ -16,5 +16,6 @@ processed/
 # Ignore notebook files (these are for testing)
 *.ipynb
 
-# Ignore data url
+# Ignore data urls
 data_url.txt
+facilities_url.txt

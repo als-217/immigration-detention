@@ -22,7 +22,7 @@ sheets = ExcelFile(file).sheet_names
 df = [
     pl.read_excel(
         file,
-        sheet_name=sheet,  # Read all sheets
+        sheet_name=sheet,
         read_options={"header_row": 6},
         engine="calamine"
     ) for sheet in sheets
@@ -49,4 +49,5 @@ df = df.rename({
 })
 
 print("Writing data...")
+Path("data").mkdir(parents=True, exist_ok=True)
 df.write_parquet("data/detentions_raw.parquet")
