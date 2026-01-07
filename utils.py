@@ -1,4 +1,6 @@
 import polars as pl
+import hashlib
+import numpy as np
 
 def harmonize_dtypes(df1, df2):
     for col in set(df1.columns) & set(df2.columns):
@@ -23,3 +25,11 @@ def harmonize_dtypes(df1, df2):
             print(col)
 
     return df1, df2
+
+def create_id(series: pl.Series) -> pl.Series:
+    """Vectorized hashing using numpy vectorize"""
+    vectorized_hash = np.vectorize(
+        lambda x: hashlib.sha256(x.encode()).hexdigest() if x else None,
+        otypes=[str]
+    )
+    return pl.Series(vectorized_hash(series.to_numpy()))
