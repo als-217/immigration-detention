@@ -352,6 +352,14 @@ df = df.with_columns(
     .alias("religion")
 )
 
+# Convert final order indicator to boolean
+df = df.with_columns(
+    pl.when(pl.col("final_order_yes_no") == "YES")
+    .then(True)
+    .otherwise(False)
+    .alias("final_order_yes_no")
+)
+
 # Drop remaining helper columns and save
 df = df.drop("within_person_next_book_in_date_time", "non_transfer_reason")
 
