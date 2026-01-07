@@ -21,7 +21,9 @@ df = pl.read_excel(
     )
 
 df = df.unique(subset=["detention_facility_code"])
-
+df = df.select("detention_facility_code", "latitude", "longitude",
+    "city", "state", "type_detailed", "type_grouped"
+)
 
 print("Writing data...")
 Path("data").mkdir(parents=True, exist_ok=True)
