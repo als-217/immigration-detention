@@ -13,7 +13,7 @@ response.raise_for_status()
 file = io.BytesIO(response.content)
 print("Download finished.")
 
-print("Reading data...")
+print("Reading facilities data...")
 df = pl.read_excel(
         file,
         sheet_name=None,
@@ -25,6 +25,6 @@ df = df.select("detention_facility_code", "latitude", "longitude",
     "city", "state", "type_detailed", "type_grouped"
 )
 
-print("Writing data...")
+print("Writing facilities data...")
 Path("data").mkdir(parents=True, exist_ok=True)
 df.write_parquet("data/facilities_raw.parquet")
