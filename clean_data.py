@@ -229,6 +229,55 @@ drop = df.filter(
 
 df = df.join(drop, on="stay_id", how="anti")
 
+# Drop people that have multiple stays with missing book out dates
+drop = (
+    df.filter(pl.col("stay_book_out_date").is_null())
+    .group_by("unique_identifier")
+    .agg(
+        pl.col("stay_book_in_date")
+        .n_unique()
+        .alias("unique_count")
+    )
+).filter(pl.col("unique_count") > 1).select("unique_identifier")
+
+df = df.join(drop, on="unique_identifier", how="anti")
+
+# Drop people that have multiple stays that end in transfer
+drop = (
+    df.filter(pl.col("stay_release_reason") == "Transferred")
+    .group_by("unique_identifier")
+    .agg(pl.col("stay_id").n_unique().alias("num_transfer_stays"))
+).filter(pl.col("num_transfer_stays") > 1).select("unique_identifier")
+
+df = df.join(drop, on="unique_identifier", how="anti")
+
+# Get number of stays per person
+df = df.with_columns(
+    pl.col("stay_number")
+    .max()
+    .over("unique_identifier")
+    .alias("total_num_stays")
+)
+
+# Get next stay_id
+df = df.with_columns(
+    pl.col("stay_id")
+    .shift(-1)
+    .over("unique_identifier", order_by="stay_number")
+    .alias("next_stay_id")
+ )
+
+# If stay_release_reason == "Transferred" and it is the last stay, set stay_release_reason to NULL
+df = df.with_columns(
+    pl.when(
+        (pl.col("stay_release_reason") == "Transferred") &
+          (pl.col("stay_number") == pl.col("total_num_stays"))
+    )
+    .then(None)
+    .otherwise("stay_release_reason")
+    .alias("stay_release_reason")
+)
+
 # Get next detentions's book in date and time for each person
 df = (
     df.sort("detention_book_in_date_time")
@@ -359,6 +408,9 @@ df = df.with_columns(
     .otherwise(False)
     .alias("final_order_yes_no")
 )
+
+# Indicator for whether final order came before book in
+
 
 # Drop remaining helper columns and save
 df = df.drop("within_person_next_book_in_date_time", "non_transfer_reason")
