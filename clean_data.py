@@ -72,6 +72,18 @@ df = df.with_columns(
 # The stay_id uses the date rather than datetime because no two stays should begin on the same day
 stay_id_cols = ["unique_identifier", "stay_book_in_date"]
 
+# Remove people with stays that begin on the same day but end at different times
+stays = (
+    df.group_by(stay_id_cols)
+    .agg(
+        pl.col("stay_book_out_date_time").n_unique().alias("unique_count")
+    )
+    .filter(pl.col("unique_count") > 1)
+    .select("unique_identifier")
+)
+
+df = df.join(stays, on="unique_identifier", how="anti")
+
 # Create stay id
 df = df.with_columns(
     pl.concat_str(
@@ -133,10 +145,10 @@ df = df.filter(
 
 # Order stay within person and add stay number
 df = (
-    df.sort("unique_identifier", "stay_book_in_date_time")
+    df.sort("unique_identifier", "stay_book_in_date")
     .with_columns(
         # Add stay number for each person
-        pl.col("stay_book_in_date_time")
+        pl.col("stay_book_in_date")
         .rank(method="dense")
         .over("unique_identifier")
         .alias("stay_number"),
@@ -260,12 +272,20 @@ df = df.with_columns(
 )
 
 # Get next stay_id
-df = df.with_columns(
-    pl.col("stay_id")
-    .shift(-1)
-    .over("unique_identifier", order_by="stay_number")
-    .alias("next_stay_id")
- )
+# Must get unique stays first because a stay can have multiple rows
+stay_level = (
+    df.select(["unique_identifier", "stay_id", "stay_number"])
+    .unique()
+    .sort("unique_identifier", "stay_number")
+    .with_columns(
+        pl.col("stay_id")
+        .shift(-1)
+        .over("unique_identifier")
+        .alias("next_stay_id")
+    )
+).select(["stay_id", "next_stay_id"])
+
+df = df.join(stay_level, on="stay_id", how="left")
 
 # If stay_release_reason == "Transferred" and it is the last stay, set stay_release_reason to NULL
 df = df.with_columns(
@@ -295,10 +315,20 @@ df = df.with_columns(
     .over("stay_id")
     .alias("stay_book_in_date")
 ).with_columns(
+    pl.col("stay_book_in_date_time")
+    .min()
+    .over("stay_id")
+    .alias("stay_book_in_date_time")
+).with_columns(
     pl.col("stay_book_out_date")
     .last() #Set stay_book_out_date to latest stay_book_out_date (using last to handle null)
     .over("stay_id", order_by="stay_number")
     .alias("stay_book_out_date")
+).with_columns(
+    pl.col("stay_book_out_date_time")
+    .last()
+    .over("stay_id", order_by="stay_number")
+    .alias("stay_book_out_date_time")
 ).with_columns(
     pl.col("stay_release_reason")
     .last() # Set stay_release_reason to stay_release_reason where stay_number is highest
