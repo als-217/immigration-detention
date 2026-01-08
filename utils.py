@@ -33,3 +33,18 @@ def create_id(series: pl.Series) -> pl.Series:
         otypes=[str]
     )
     return pl.Series(vectorized_hash(series.to_numpy()))
+
+def find_distance(lat: pl.Series, lon: pl.Series,
+                        next_lat: pl.Series, next_lon: pl.Series) -> pl.Series:
+    
+    # Convert to radians
+    lat, lon, next_lat, next_lon = map(np.radians, [lat, lon, next_lat, next_lon])
+    
+    # Calculate Haversine distance
+    dlat = next_lat - lat
+    dlon = next_lon - lon
+    a = np.sin(dlat/2)**2 + np.cos(lat) * np.cos(next_lat) * np.sin(dlon/2)**2
+    c = 2 * np.arcsin(np.sqrt(a))
+    
+    # Convert to KM
+    return c * 6371
