@@ -134,17 +134,17 @@ df = df.filter(
 # Order stay within person and add stay number
 df = (
     df.sort("unique_identifier", "stay_book_in_date_time")
-    .with_columns([
+    .with_columns(
         # Add stay number for each person
         pl.col("stay_book_in_date_time")
         .rank(method="dense")
         .over("unique_identifier")
         .alias("stay_number"),
-    ])
-    .with_columns([
+    )
+    .with_columns(
         # Add indicator for whether the 'current' stay is the first stay for each person
         (pl.col("stay_number") == 1).alias("first_stay")
-    ])
+    )
 )
 
 # Add in facilities data
@@ -277,6 +277,42 @@ df = df.with_columns(
     .otherwise("stay_release_reason")
     .alias("stay_release_reason")
 )
+
+# If stay_release_reason == "Transferred" and it is the not last stay, set stay_id = next_stay_id
+df = df.with_columns(
+    pl.when(
+        (pl.col("stay_release_reason") == "Transferred") &
+          (pl.col("stay_number") < pl.col("total_num_stays"))
+    )
+    .then("next_stay_id")
+    .otherwise("stay_id")
+    .alias("stay_id")
+)
+
+df = df.with_columns(
+    pl.col("stay_book_in_date")
+    .min() # Set stay_book_in_date to earliest stay_book_in_date
+    .over("stay_id")
+    .alias("stay_book_in_date")
+).with_columns(
+    pl.col("stay_book_out_date")
+    .last() #Set stay_book_out_date to latest stay_book_out_date (using last to handle null)
+    .over("stay_id", order_by="stay_number")
+    .alias("stay_book_out_date")
+).with_columns(
+    pl.col("stay_release_reason")
+    .last() # Set stay_release_reason to stay_release_reason where stay_number is highest
+    .over("stay_id", order_by="stay_number")
+    .alias("stay_release_reason")
+)
+
+# Recalculate stay number after combining transfer stays
+df = df.with_columns(
+        pl.col("stay_book_in_date_time")
+        .rank(method="dense")
+        .over("unique_identifier", order_by="stay_book_in_date")
+        .alias("stay_number"),
+    )
 
 # Get next detentions's book in date and time for each person
 df = (
