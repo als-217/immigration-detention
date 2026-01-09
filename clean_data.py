@@ -340,9 +340,16 @@ df = (
 # Drop stays that have a missing non-final detention_book_out_date_time
 drop = df.filter(
     (pl.col("rn") != 1) & pl.col("detention_book_out_date_time").is_null()
-                 ).select("stay_id").unique()
+ ).select("stay_id").unique()
 
 df = df.join(drop, on="stay_id", how="anti")
+
+# Drop people who have a missing final detention_release_reason in a non-final stay
+drop = df.filter(
+    pl.col("detention_book_out_date_time").is_null() & (pl.col("stay_number") < pl.col("total_num_stays"))
+).select("unique_identifier").unique()
+
+df = df.join(drop, on="unique_identifier", how="anti")
 
 # Get next detentions's book in date and time for each person
 df = (
