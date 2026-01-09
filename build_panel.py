@@ -141,4 +141,4 @@ panel = panel.with_columns(
 
 print("Writing data...")
 Path("processed").mkdir(parents=True, exist_ok=True)
-df.write_parquet("processed/detentions_panel.parquet")
+panel.write_parquet("processed/detentions_panel.parquet")
