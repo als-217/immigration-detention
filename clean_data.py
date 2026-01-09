@@ -189,26 +189,6 @@ df = df.with_columns([
     .alias("stay_release_reason")
 ])
 
-# Add row number to identify the most recent detention for each stay
-# and update the last detention_release_reason to match stay_release_reason (if not "Transferred")
-df = (
-    df.sort("detention_book_in_date_time", descending=True)
-    .with_columns(
-        pl.col("detention_book_in_date_time")
-        .rank(method="ordinal", descending=True)
-        .over("stay_id")
-        .alias("rn")
-    )
-    .with_columns(
-        pl.when(
-            (pl.col("rn") == 1) & (pl.col("stay_release_reason") != "Transferred")
-        )
-        .then(pl.col("stay_release_reason"))
-        .otherwise(pl.col("detention_release_reason"))
-        .alias("detention_release_reason")
-    )
-)
-
 # Get one row per stay with the removal indicator
 stay_level = (
     df.group_by(["unique_identifier", "stay_number"])
@@ -233,13 +213,6 @@ df = df.join(
     on=["unique_identifier", "stay_number"],
     how="left"
 )
-
-# Drop stays that have a missing non-final detention_book_out_date_time
-drop = df.filter(
-    (pl.col("rn") != 1) & pl.col("detention_book_out_date_time").is_null()
-                 ).select("stay_id").unique()
-
-df = df.join(drop, on="stay_id", how="anti")
 
 # Drop people that have multiple stays with missing book out dates
 drop = (
@@ -342,7 +315,34 @@ df = df.with_columns(
         .rank(method="dense")
         .over("unique_identifier", order_by="stay_book_in_date")
         .alias("stay_number"),
+)
+
+# Add row number to identify the most recent detention for each stay
+# and update the last detention_release_reason to match stay_release_reason (if not "Transferred")
+df = (
+    df.sort("detention_book_in_date_time", descending=True)
+    .with_columns(
+        pl.col("detention_book_in_date_time")
+        .rank(method="ordinal", descending=True)
+        .over("stay_id")
+        .alias("rn")
     )
+    .with_columns(
+        pl.when(
+            (pl.col("rn") == 1) & (pl.col("stay_release_reason") != "Transferred")
+        )
+        .then(pl.col("stay_release_reason"))
+        .otherwise(pl.col("detention_release_reason"))
+        .alias("detention_release_reason")
+    )
+)
+
+# Drop stays that have a missing non-final detention_book_out_date_time
+drop = df.filter(
+    (pl.col("rn") != 1) & pl.col("detention_book_out_date_time").is_null()
+                 ).select("stay_id").unique()
+
+df = df.join(drop, on="stay_id", how="anti")
 
 # Get next detentions's book in date and time for each person
 df = (
@@ -479,7 +479,7 @@ df = df.with_columns(
 
 
 # Drop remaining helper columns and save
-df = df.drop("within_person_next_book_in_date_time", "non_transfer_reason")
+df = df.drop("within_person_next_book_in_date_time", "non_transfer_reason", "total_num_stays", "next_stay_id")
 
 print("Writing data...")
 Path("intermediate").mkdir(parents=True, exist_ok=True)
