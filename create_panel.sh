@@ -31,3 +31,12 @@ if [ $? -eq 0 ]; then
 else
     echo "Error: clean_data.py failed. Exiting."
 fi
+
+echo "Creating panel dataset..."
+python3 build_panel.py
+
+if [ $? -eq 0 ]; then
+    echo "Panel created successfully."
+else
+    echo "Error: build_panel.py failed. Exiting."
+fi
