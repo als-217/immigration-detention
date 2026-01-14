@@ -483,7 +483,12 @@ df = df.with_columns(
 )
 
 # Indicator for whether final order came before book in
-
+df = df.with_columns(
+    pl.when(pl.col("final_order_date") <= pl.col("detention_book_in_date"))
+    .then(True)
+    .otherwise(False)
+    .alias("final_order_before_book_in")
+)
 
 # Drop remaining helper columns and save
 df = df.drop("within_person_next_book_in_date_time", "non_transfer_reason", "total_num_stays", "next_stay_id")
