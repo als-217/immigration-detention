@@ -19,3 +19,6 @@ processed/
 # Ignore data urls
 data_url.txt
 facilities_url.txt
+
+# Ignore subset script
+subset_panel.py

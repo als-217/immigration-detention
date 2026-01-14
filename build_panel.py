@@ -93,11 +93,11 @@ df = df.with_columns(
     )
     .then(earliest_book_out)
     .otherwise(pl.col("detention_book_in_date"))
-    .alias("detention_book_in_date")
+    .alias("detention_start_date")
 )
 
-df = df.drop("stay_book_in_date_time", "stay_book_out_date_time", "stay_book_in_date", "stay_book_out_date",
-             "next_book_in_date_time", "next_book_in_date", "latitude", "longitude", "next_latitude", "next_longitude",
+df = df.drop("stay_book_out_date_time", "stay_book_out_date", "next_book_in_date_time",
+              "next_book_in_date", "latitude", "longitude", "next_latitude", "next_longitude",
              "rn", "within_person_next_book_in_date")
 
 print("Expanding data into a panel...")
@@ -105,7 +105,7 @@ panel = (
     df.with_columns(
         # Collect all dates in each detention and create a temporary column
         pl.date_ranges(
-            pl.col("detention_book_in_date"),
+            pl.col("detention_start_date"),
             pl.col("last_detention_date"),
             interval="1d"
         ).alias("detention_date")
@@ -115,24 +115,20 @@ panel = (
     .sort("unique_identifier", "detention_date")
 )
 
-panel = panel.drop("detention_book_in_date_time", "detention_book_out_date_time",
-                    "detention_book_in_date", "last_detention_date")
-
-# Count number of detention_dates in current facility
+# Count number of detention_dates in current detention
 panel = panel.with_columns(
-    pl.col("detention_date")
-    .cum_count()
-    .over("detention_id", order_by="detention_date")
+    (pl.col("detention_date") - pl.col("detention_book_in_date"))
     .alias("days_in_current_detention")
 )
 
 # Count number of detention_dates in current stay
 panel = panel.with_columns(
-    pl.col("detention_date")
-    .cum_count()
-    .over("detention_id", order_by="detention_date")
+    (pl.col("detention_date") - pl.col("stay_book_in_date"))
     .alias("days_in_current_stay")
 )
+
+panel = panel.drop("detention_book_in_date_time", "detention_book_out_date_time",
+                   "last_detention_date", "stay_book_in_date", "detention_start_date")
 
 # Add a date id
 panel = panel.with_columns(
